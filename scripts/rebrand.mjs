@@ -73,12 +73,15 @@ manifest.short_name = brand.name
 manifest.theme_color = brand.themeColor
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
 
-// Swap the icon files in place so every existing reference picks them up.
+// Swap the icon files in place so every existing reference picks them up,
+// including the seasonal logos the theme switches to in June and October.
 const icons = [
   ['favicon.ico', 'fmhy.ico'],
   ['favicon.ico', 'favicon.ico'],
   ['icon-512.png', 'pwa_icon.png'],
-  ['icon-512.png', 'test.png']
+  ['icon-512.png', 'test.png'],
+  ['icon-512.png', 'hall.png'],
+  ['icon-512.webp', 'june_icon.webp']
 ]
 for (const [from, to] of icons) {
   fs.copyFileSync(path.join(root, 'brand', from), path.join(pub, to))

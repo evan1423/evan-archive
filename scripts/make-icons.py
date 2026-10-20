@@ -37,5 +37,6 @@ d.rounded_rectangle([216 * S, 262 * S, 296 * S, 262 * S + stroke], radius=stroke
 
 icon = img.resize((512, 512), Image.LANCZOS)
 icon.save(out / "icon-512.png", optimize=True)
+icon.save(out / "icon-512.webp", lossless=True)
 icon.save(out / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-print("wrote", out / "icon-512.png", "and", out / "favicon.ico")
+print("wrote icon-512.png, icon-512.webp and favicon.ico to", out)
