@@ -1,0 +1,48 @@
+name: Sync with FMHY
+
+# Checks fmhy/edit every hour. When it has moved, bumps the pinned commit in
+# upstream.json and pushes; Vercel sees the push and deploys the new build.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Pin latest FMHY commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          repo=$(jq -r .repo upstream.json)
+          branch=$(jq -r .branch upstream.json)
+          current=$(jq -r .sha upstream.json)
+          latest=$(git ls-remote "https://github.com/$repo.git" "refs/heads/$branch" | cut -f1)
+
+          if [ -z "$latest" ]; then
+            echo "::error::Could not read $repo@$branch"
+            exit 1
+          fi
+          if [ "$latest" = "$current" ]; then
+            echo "Already at $repo@${latest:0:8}, nothing to do."
+            exit 0
+          fi
+
+          subject=$(gh api "repos/$repo/commits/$latest" --jq '.commit.message | split("\n")[0]' || echo "")
+          jq --arg sha "$latest" '.sha = $sha' upstream.json > upstream.json.tmp
+          mv upstream.json.tmp upstream.json
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "Sync FMHY ${latest:0:8}: ${subject}"
+          git push

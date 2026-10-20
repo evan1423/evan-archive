@@ -1,0 +1,6 @@
+node_modules/
+.upstream/
+dist/
+.vercel
+.DS_Store
+.claude/

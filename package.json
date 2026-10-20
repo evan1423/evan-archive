@@ -1,0 +1,12 @@
+{
+  "name": "evan-archive",
+  "private": true,
+  "description": "Evan Archive: an automatically updated, rebranded mirror of FMHY.",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "preview": "npx --yes serve dist"
+  }
+}
