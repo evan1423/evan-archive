@@ -1,7 +1,10 @@
 name: Sync with FMHY
 
-# Checks fmhy/edit every hour. When it has moved, bumps the pinned commit in
-# upstream.json and pushes; Vercel sees the push and deploys the new build.
+# Checks fmhy/edit every hour. When it has moved, test-applies the branding to
+# the new commit; if that works, bumps the pinned commit in upstream.json and
+# pushes, and Vercel deploys the new build. If upstream changed a line the
+# branding depends on, this run fails (GitHub emails you), the pin stays put,
+# and the site keeps serving the last good version until rebrand.mjs is fixed.
 on:
   schedule:
     - cron: '17 * * * *'
@@ -20,9 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Pin latest FMHY commit
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Find latest FMHY commit
+        id: upstream
         run: |
           repo=$(jq -r .repo upstream.json)
           branch=$(jq -r .branch upstream.json)
@@ -35,14 +37,36 @@ jobs:
           fi
           if [ "$latest" = "$current" ]; then
             echo "Already at $repo@${latest:0:8}, nothing to do."
-            exit 0
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
 
-          subject=$(gh api "repos/$repo/commits/$latest" --jq '.commit.message | split("\n")[0]' || echo "")
-          jq --arg sha "$latest" '.sha = $sha' upstream.json > upstream.json.tmp
+      - name: Test branding against it
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          REPO: ${{ steps.upstream.outputs.repo }}
+          LATEST: ${{ steps.upstream.outputs.latest }}
+        run: |
+          dir="$RUNNER_TEMP/fmhy"
+          git init --quiet "$dir"
+          git -C "$dir" fetch --quiet --depth=1 --no-tags "https://github.com/$REPO.git" "$LATEST"
+          git -C "$dir" checkout --quiet FETCH_HEAD
+          node scripts/rebrand.mjs "$dir"
+
+      - name: Pin it
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ steps.upstream.outputs.repo }}
+          LATEST: ${{ steps.upstream.outputs.latest }}
+        run: |
+          subject=$(gh api "repos/$REPO/commits/$LATEST" --jq '.commit.message | split("\n")[0]' || echo "")
+          jq --arg sha "$LATEST" '.sha = $sha' upstream.json > upstream.json.tmp
           mv upstream.json.tmp upstream.json
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -am "Sync FMHY ${latest:0:8}: ${subject}"
+          git commit -am "Sync FMHY ${LATEST:0:8}: ${subject}"
           git push

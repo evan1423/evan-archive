@@ -3,6 +3,7 @@
 Run once after changing the design: python3 scripts/make-icons.py
 """
 
+import base64
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -39,4 +40,11 @@ icon = img.resize((512, 512), Image.LANCZOS)
 icon.save(out / "icon-512.png", optimize=True)
 icon.save(out / "icon-512.webp", lossless=True)
 icon.save(out / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-print("wrote icon-512.png, icon-512.webp and favicon.ico to", out)
+
+# Some upstream logo slots are .svg files, so wrap the PNG for those.
+png = base64.b64encode((out / "icon-512.png").read_bytes()).decode()
+(out / "logo.svg").write_text(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">'
+    f'<image width="512" height="512" href="data:image/png;base64,{png}"/></svg>\n'
+)
+print("wrote icon-512.png, icon-512.webp, favicon.ico and logo.svg to", out)
